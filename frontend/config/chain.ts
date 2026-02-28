@@ -8,8 +8,8 @@ export type ChainConfig = {
 };
 
 export const MONAD: ChainConfig = {
-  chainId: 10143, // örnek
-  chainIdHex: "0x279F",
+  chainId: 31337, // örnek
+  chainIdHex: "0x7A69",
   chainName: "Monad",
   nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
   rpcUrls: ["https://rpc.monad.xyz"], // placeholder
