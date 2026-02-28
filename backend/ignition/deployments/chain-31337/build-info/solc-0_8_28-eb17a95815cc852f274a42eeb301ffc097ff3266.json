@@ -1,0 +1,39 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-eb17a95815cc852f274a42eeb301ffc097ff3266",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "userSourceNameMap": {
+    "contracts/PredictionMarket.sol": "project/contracts/PredictionMarket.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/PredictionMarket.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.20;\r\n\r\ncontract PredictionMarket {\r\n    struct Market {\r\n        uint256 yesPool;\r\n        uint256 noPool;\r\n        uint64 closeTime;\r\n        bool resolved;\r\n        bool outcomeYes;\r\n    }\r\n\r\n    address public owner;\r\n    address public resolver; // Governor set eder\r\n    uint256 public nextMarketId;\r\n\r\n    mapping(uint256 => Market) public markets;\r\n    mapping(uint256 => mapping(address => uint256)) public yesBets;\r\n    mapping(uint256 => mapping(address => uint256)) public noBets;\r\n    mapping(uint256 => mapping(address => bool)) public claimed;\r\n\r\n    event MarketCreated(uint256 indexed id, uint64 closeTime);\r\n    event BetPlaced(uint256 indexed id, address indexed user, bool yes, uint256 amount);\r\n    event Resolved(uint256 indexed id, bool outcomeYes);\r\n    event Claimed(uint256 indexed id, address indexed user, uint256 payout);\r\n\r\n    modifier onlyOwner() {\r\n        require(msg.sender == owner, \"ONLY_OWNER\");\r\n        _;\r\n    }\r\n\r\n    modifier onlyResolver() {\r\n        require(msg.sender == resolver, \"ONLY_RESOLVER\");\r\n        _;\r\n    }\r\n\r\n    constructor() {\r\n        owner = msg.sender;\r\n    }\r\n\r\n    function setResolver(address _resolver) external onlyOwner {\r\n        require(_resolver != address(0), \"BAD_RESOLVER\");\r\n        resolver = _resolver;\r\n    }\r\n\r\n    function createMarket(uint64 closeTime) external onlyResolver returns (uint256 id) {\r\n        require(closeTime > block.timestamp, \"CLOSE_IN_PAST\");\r\n        id = nextMarketId++;\r\n        markets[id] = Market({\r\n            yesPool: 0,\r\n            noPool: 0,\r\n            closeTime: closeTime,\r\n            resolved: false,\r\n            outcomeYes: false\r\n        });\r\n        emit MarketCreated(id, closeTime);\r\n    }\r\n\r\n    function betYes(uint256 id) external payable {\r\n        _bet(id, true);\r\n    }\r\n\r\n    function betNo(uint256 id) external payable {\r\n        _bet(id, false);\r\n    }\r\n\r\n    function _bet(uint256 id, bool yes) internal {\r\n        require(msg.value > 0, \"NO_VALUE\");\r\n        Market storage m = markets[id];\r\n        require(m.closeTime != 0 || id == 0, \"BAD_ID\"); // id=0 closeTime set olur; m.closeTime=0 sadece hiç yaratılmadıysa kalır\r\n        require(block.timestamp < m.closeTime, \"MARKET_CLOSED\");\r\n        require(!m.resolved, \"ALREADY_RESOLVED\");\r\n\r\n        if (yes) {\r\n            m.yesPool += msg.value;\r\n            yesBets[id][msg.sender] += msg.value;\r\n        } else {\r\n            m.noPool += msg.value;\r\n            noBets[id][msg.sender] += msg.value;\r\n        }\r\n\r\n        emit BetPlaced(id, msg.sender, yes, msg.value);\r\n    }\r\n\r\n    /// @return bps 0..10000 (yesPool / total)\r\n    function priceYesBps(uint256 id) public view returns (uint256 bps) {\r\n        Market storage m = markets[id];\r\n        require(m.closeTime != 0 || id == 0, \"BAD_ID\");\r\n        uint256 total = m.yesPool + m.noPool;\r\n        if (total == 0) return 0;\r\n        return (m.yesPool * 10000) / total;\r\n    }\r\n\r\n    function resolve(uint256 id, bool outcomeYes) external onlyResolver {\r\n        Market storage m = markets[id];\r\n        require(m.closeTime != 0 || id == 0, \"BAD_ID\");\r\n        require(!m.resolved, \"ALREADY_RESOLVED\");\r\n        require(block.timestamp >= m.closeTime, \"TOO_EARLY\");\r\n\r\n        m.resolved = true;\r\n        m.outcomeYes = outcomeYes;\r\n\r\n        emit Resolved(id, outcomeYes);\r\n    }\r\n\r\n    function claim(uint256 id) external returns (uint256 payout) {\r\n        Market storage m = markets[id];\r\n        require(m.resolved, \"NOT_RESOLVED\");\r\n        require(!claimed[id][msg.sender], \"ALREADY_CLAIMED\");\r\n\r\n        claimed[id][msg.sender] = true; // effects\r\n\r\n        uint256 total = m.yesPool + m.noPool;\r\n        uint256 winnerPool = m.outcomeYes ? m.yesPool : m.noPool;\r\n        uint256 userStake = m.outcomeYes ? yesBets[id][msg.sender] : noBets[id][msg.sender];\r\n\r\n        if (winnerPool == 0 || userStake == 0) {\r\n            // payout = 0\r\n            emit Claimed(id, msg.sender, 0);\r\n            return 0;\r\n        }\r\n\r\n        payout = (total * userStake) / winnerPool;\r\n\r\n        (bool ok, ) = msg.sender.call{value: payout}(\"\");\r\n        require(ok, \"PAYOUT_FAIL\");\r\n\r\n        emit Claimed(id, msg.sender, payout);\r\n    }\r\n}"
+      }
+    }
+  }
+}
