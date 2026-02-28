@@ -1,0 +1,39 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-eb256405ffc87ca3b36e98c34bb524fee5a8b346",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "userSourceNameMap": {
+    "contracts/Treasury.sol": "project/contracts/Treasury.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/Treasury.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.20;\r\n\r\ncontract Treasury {\r\n    address public governor;\r\n    address public owner;\r\n\r\n    event GovernorSet(address indexed governor);\r\n    event Sent(address indexed to, uint256 amount);\r\n\r\n    modifier onlyOwner() {\r\n        require(msg.sender == owner, \"ONLY_OWNER\");\r\n        _;\r\n    }\r\n\r\n    modifier onlyGovernor() {\r\n        require(msg.sender == governor, \"ONLY_GOVERNOR\");\r\n        _;\r\n    }\r\n\r\n    constructor() {\r\n        owner = msg.sender;\r\n    }\r\n\r\n    receive() external payable {}\r\n\r\n    function setGovernor(address _governor) external onlyOwner {\r\n        require(_governor != address(0), \"BAD_GOVERNOR\");\r\n        governor = _governor;\r\n        emit GovernorSet(_governor);\r\n    }\r\n\r\n    function sendTo(address payable to, uint256 amount) external onlyGovernor {\r\n        require(to != address(0), \"BAD_TO\");\r\n        require(amount > 0, \"BAD_AMOUNT\");\r\n        require(address(this).balance >= amount, \"TREASURY_EMPTY\");\r\n\r\n        // effects -> interactions (no state to change here besides event)\r\n        (bool ok, ) = to.call{value: amount}(\"\");\r\n        require(ok, \"TRANSFER_FAIL\");\r\n\r\n        emit Sent(to, amount);\r\n    }\r\n}"
+      }
+    }
+  }
+}
