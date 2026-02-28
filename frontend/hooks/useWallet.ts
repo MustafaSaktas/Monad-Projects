@@ -1,3 +1,4 @@
+import { TARGET_CHAIN } from "../config/chain";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ethers } from "ethers";
 import { TARGET_CHAIN } from "../config/chains";

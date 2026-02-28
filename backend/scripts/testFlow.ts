@@ -77,8 +77,8 @@ async function main() {
   const block = await publicClient.getBlock()
   const now = block.timestamp
 
- const deadline = now + 120n
-const marketCloseTime = now + 300n
+const marketCloseTime = now + 120n
+const deadline = now + 300n // veya marketCloseTime + 60n gibi
 
   console.log("now:", now.toString())
   console.log("marketCloseTime:", marketCloseTime.toString())
