@@ -1,0 +1,48 @@
+# Node modules
+node_modules/
+
+# Hardhat / build artifacts
+artifacts/
+cache/
+out/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# VSCode
+.vscode/
+
+# Build outputs
+dist/
+build/
+
+# Coverage
+coverage/
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# Compiled binaries
+*.exe
+*.out
+*.class
+
+# Hardhat ignition / deployments (isteğe bağlı)
+ignition/deployments/
+ignition/build-info/
+
+# Misc
+.idea/
